@@ -1,0 +1,51 @@
+{
+  "name": "whatsapp-contact-exporter",
+  "version": "1.0.0",
+  "description": "Extract and normalize unsaved contacts from WhatsApp Web into CSV and VCF formats",
+  "main": "dist/cli.js",
+  "bin": {
+    "whatsapp-contact-exporter": "./dist/cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "export": "tsx src/wizard.ts",
+    "wizard": "tsx src/wizard.ts",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hanzlaahmad/whatsapp-contact-exporter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hanzlaahmad/whatsapp-contact-exporter/issues"
+  },
+  "homepage": "https://github.com/hanzlaahmad/whatsapp-contact-exporter#readme",
+  "author": "Hanzla Ahmad",
+  "license": "ISC",
+  "keywords": [
+    "whatsapp",
+    "contacts",
+    "exporter",
+    "vcf",
+    "csv",
+    "e164",
+    "puppeteer"
+  ],
+  "dependencies": {
+    "commander": "^13.1.0",
+    "libphonenumber-js": "^1.11.19",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "@types/qrcode-terminal": "^0.12.2",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
+  }
+}

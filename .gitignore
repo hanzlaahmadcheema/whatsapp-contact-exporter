@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Release Executable Artifacts
+release/
+
 # Exports & Generated Output
 exports/*.csv
 exports/*.vcf

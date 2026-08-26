@@ -1,10 +1,13 @@
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import qrcode from 'qrcode-terminal';
+import { getAuthDir } from './paths.js';
+import { findSystemBrowser } from './browser.js';
 
 export interface AuthInitOptions {
   headless?: boolean;
   dataPath?: string;
+  executablePath?: string;
   webVersionCacheUrl?: string;
   onQr?: (qr: string) => void;
   onAuthenticated?: () => void;
@@ -16,34 +19,52 @@ export interface AuthInitOptions {
 
 /**
  * Initializes WhatsApp Web client with LocalAuth session persistence, QR authentication,
- * and high-timeout Puppeteer settings to prevent CDP protocol timeouts.
+ * platform-aware AppData resolution, and system browser auto-detection.
  */
 export function createWhatsAppClient(options: AuthInitOptions = {}): InstanceType<typeof Client> {
   const log = options.onLog || console.log;
 
-  log('Initializing WhatsApp Web client with LocalAuth...');
+  const authDataPath = options.dataPath || getAuthDir();
+  log(`Initializing WhatsApp Web client with LocalAuth at: ${authDataPath}`);
+
+  let browserPath = options.executablePath;
+  if (!browserPath) {
+    try {
+      const detected = findSystemBrowser();
+      browserPath = detected.executablePath;
+      log(`[Browser] Auto-detected system browser: ${detected.browserName} (${browserPath})`);
+    } catch (err) {
+      log(`[Browser Info] Bundled Chromium fallback / System search note: ${(err as Error).message}`);
+    }
+  }
+
+  const puppeteerConfig: Record<string, unknown> = {
+    headless: options.headless ?? true,
+    protocolTimeout: 0, // Disable CDP protocol timeout for script injection
+    timeout: 120000, // 2-minute browser load timeout
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+    ],
+  };
+
+  if (browserPath) {
+    puppeteerConfig.executablePath = browserPath;
+  }
 
   const clientOptions: Record<string, unknown> = {
     authStrategy: new LocalAuth({
-      dataPath: options.dataPath || './.wwebjs_auth',
+      dataPath: authDataPath,
     }),
-    puppeteer: {
-      headless: options.headless ?? true,
-      protocolTimeout: 0, // Disable CDP protocol timeout for script injection
-      timeout: 120000, // 2-minute browser load timeout
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-      ],
-    },
+    puppeteer: puppeteerConfig,
   };
 
   // Only apply remote web version cache if explicitly provided

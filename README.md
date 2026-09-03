@@ -20,13 +20,17 @@ For Windows users who want to run the tool without installing Node.js or npm, a 
 
 ### Running on Windows
 1. Download `whatsapp-contact-exporter-windows-x64.exe` from the latest GitHub Release.
-2. Open Command Prompt or PowerShell in your download directory and run:
-   ```cmd
-   whatsapp-contact-exporter-windows-x64.exe -c PK
-   ```
-3. A Terminal QR code will display. Scan it using WhatsApp on your phone (**Settings** $\rightarrow$ **Linked Devices**).
-4. Export files will automatically save to:
-   `%APPDATA%\WhatsApp Contact Exporter\exports\`
+2. **Double-click** the `.exe` file (or run it from PowerShell/CMD).
+3. The interactive **Main Menu** will appear:
+   - `[1] Start Contact Export`: Step-by-step guided extraction with customizable naming and formats.
+   - `[2] Logout & Switch Account`: Clears saved login session to link a different WhatsApp account.
+   - `[3] Open Exports Folder`: Directly reveals your exports folder in Windows File Explorer.
+   - `[4] Exit`: Safely exits the application.
+4. Scan the on-screen QR code using WhatsApp on your phone (**Settings** $\rightarrow$ **Linked Devices**).
+5. Upon export completion, Windows File Explorer will automatically open your exports folder!
+
+> [!TIP]
+> Power users can still pass CLI flags (e.g. `whatsapp-contact-exporter-windows-x64.exe -c PK -f csv`) to bypass the menu and run direct automated exports.
 
 ### Persistent Authentication Data Location
 Session credentials and browser cache are stored safely inside your user AppData directory:
@@ -133,7 +137,7 @@ npm run build
 
 ## 💻 Usage & Execution Modes
 
-### Mode 1: Interactive Quick Setup Wizard
+### Mode 1: Interactive Main Menu & Wizard
 
 Run the executable launcher script or npm target:
 
@@ -143,13 +147,11 @@ Run the executable launcher script or npm target:
 npm run export
 ```
 
-The wizard will guide you through:
-1. **Default Country Code** (Default: `PK`)
-2. **Include Group Chat participants?** (Default: `n`)
-3. **Export Formats** (`csv`, `vcf`, or `both`)
-4. **Output Directory** (Default: `%APPDATA%\WhatsApp Contact Exporter\exports\`)
-5. **Contact Naming Style** (Pushname, Full Number, Last 4 Digits, or Counter)
-6. **Custom Name Prefix / Suffix**
+The interactive menu lets you:
+- **`[1] Start Contact Export`**: Guided step-by-step setup (Country Code, Group inclusion, CSV/VCF formats, Output directory, Contact naming style, Custom prefixes/suffixes).
+- **`[2] Logout & Switch Account`**: Clears active session credentials to scan with a new WhatsApp number.
+- **`[3] Open Exports Folder`**: Opens the target directory in your file manager.
+- **`[4] Exit`**: Gracefully terminates the session.
 
 ---
 

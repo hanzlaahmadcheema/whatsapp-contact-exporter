@@ -2,6 +2,8 @@
 
 import { Command } from 'commander';
 import path from 'path';
+import readline from 'readline';
+import { exec } from 'child_process';
 import { createWhatsAppClient } from './auth.js';
 import { scanWhatsAppChats } from './scanner.js';
 import { normalizeContacts } from './normalizer.js';
@@ -10,21 +12,51 @@ import { performHealthCheck } from './health.js';
 import { ExportSummary, ExporterOptions, NamingCustomizationOptions, NameStyleOption } from './types.js';
 import { promptWizardOptions } from './wizard.js';
 
+export function openFolderInExplorer(folderPath: string): void {
+  try {
+    if (process.platform === 'win32') {
+      exec(`explorer.exe "${folderPath}"`);
+    } else if (process.platform === 'darwin') {
+      exec(`open "${folderPath}"`);
+    } else {
+      exec(`xdg-open "${folderPath}"`);
+    }
+  } catch {
+    // Non-fatal
+  }
+}
+
+export async function pauseForUserExit(): Promise<void> {
+  if (process.stdin.isTTY) {
+    console.log('\n----------------------------------------------------------------');
+    console.log(' ✨ Press [ENTER] to exit...');
+    await new Promise<void>((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      rl.question('', () => {
+        rl.close();
+        resolve();
+      });
+    });
+  }
+}
+
 export async function runExportPipeline(options: ExporterOptions): Promise<void> {
-  console.log('====================================================');
-  console.log('         WhatsApp Contact Exporter CLI             ');
-  console.log('====================================================');
+  console.log('================================================================');
+  console.log('         🟢 WHATSAPP CONTACT EXPORTER PIPELINE');
+  console.log('================================================================');
   console.log(`• Default Country : ${options.country}`);
   console.log(`• Export Formats  : ${options.format.join(', ')}`);
-  console.log(`• Output Directory: ${options.outputDir}`);
+  console.log(`• Output Folder   : ${options.outputDir}`);
   console.log(`• Include Groups  : ${options.includeGroups ? 'Yes' : 'No'}`);
-  console.log(`• Headless Mode   : ${options.headless ? 'Yes' : 'No'}`);
   if (options.naming) {
     console.log(`• Name Style      : ${options.naming.nameStyle}`);
     if (options.naming.prefix) console.log(`• Prefix          : "${options.naming.prefix}"`);
     if (options.naming.suffix) console.log(`• Suffix          : "${options.naming.suffix}"`);
   }
-  console.log('----------------------------------------------------');
+  console.log('----------------------------------------------------------------');
 
   const client = createWhatsAppClient({
     headless: options.headless,
@@ -35,7 +67,7 @@ export async function runExportPipeline(options: ExporterOptions): Promise<void>
     try {
       await performHealthCheck(client, (msg) => console.log(msg));
 
-      console.log('[Progress] Starting WhatsApp chat scanning...');
+      console.log('\n🔍 [Progress] Scanning WhatsApp active chats...');
 
       const scanResults = await scanWhatsAppChats(client, options.includeGroups, options.syncWaitMs, {
         onProgress: (current, total, name) => {
@@ -44,11 +76,11 @@ export async function runExportPipeline(options: ExporterOptions): Promise<void>
         onLog: (msg) => console.log(`\n${msg}`),
       });
 
-      console.log('\n\n[Progress] Scan complete. Normalizing phone numbers...');
+      console.log('\n\n⚙️ [Progress] Normalizing & validating phone numbers...');
 
       const normalization = normalizeContacts(scanResults.contacts, options.country, options.naming);
 
-      console.log('[Progress] Exporting contact files...');
+      console.log('💾 [Progress] Writing contact files to disk...');
 
       const exportResult = await exportContacts(normalization.normalized, options.outputDir, options.format);
 
@@ -76,12 +108,19 @@ export async function runExportPipeline(options: ExporterOptions): Promise<void>
 
       printSummary(summary);
 
-      console.log('\n[Done] Process completed successfully. Closing session...');
-      await client.destroy();
+      // Open export folder in File Explorer for easy access
+      console.log('📂 Opening exports folder in File Explorer...');
+      openFolderInExplorer(options.outputDir);
+
+      console.log('\n[Done] Process completed successfully.');
+      await client.destroy().catch(() => {});
+      await pauseForUserExit();
       process.exit(0);
     } catch (err) {
-      console.error('\n[Fatal Error] An unexpected error occurred during execution:', err);
-      await client.destroy();
+      console.error('\n❌ [Error] An error occurred during export:', err instanceof Error ? err.message : err);
+      console.log('💡 Tip: Make sure WhatsApp on your phone is connected to the internet and try again.');
+      await client.destroy().catch(() => {});
+      await pauseForUserExit();
       process.exit(1);
     }
   });
@@ -102,33 +141,31 @@ export async function runExportPipeline(options: ExporterOptions): Promise<void>
         await new Promise((r) => setTimeout(r, 2000));
         continue;
       }
-      console.error('[Fatal Error] Failed to initialize WhatsApp Web client:', err);
+      console.error('❌ [Fatal Error] Failed to connect to WhatsApp Web:', err instanceof Error ? err.message : err);
+      console.log('💡 Tip: Ensure Chrome or Edge is installed and you have an active internet connection.');
+      await pauseForUserExit();
       process.exit(1);
     }
   }
 }
 
 function printSummary(summary: ExportSummary): void {
-  console.log('\n====================================================');
-  console.log('              FINAL SCAN & EXPORT SUMMARY           ');
-  console.log('====================================================');
+  console.log('\n================================================================');
+  console.log('              🎉 SCAN & EXPORT COMPLETE');
+  console.log('================================================================');
   console.log(` Total Chats Scanned        : ${summary.totalChatsScanned}`);
-  console.log(`   ├─ DM Candidates         : ${summary.dmCandidatesCount}`);
-  console.log(`   └─ Group Candidates      : ${summary.groupCandidatesCount}`);
+  console.log(`   ├─ DM Chats              : ${summary.dmCandidatesCount}`);
+  console.log(`   └─ Group Chats           : ${summary.groupCandidatesCount}`);
   console.log(` Total Contacts Discovered  : ${summary.totalContactsDiscovered}`);
-  console.log(`   ├─ SAVED Contacts        : ${summary.savedContactsCount}`);
-  console.log(`   ├─ UNSAVED Contacts      : ${summary.unsavedContactsCount}`);
-  console.log(`   ├─ UNCERTAIN Status      : ${summary.uncertainContactsCount}`);
-  console.log(`   └─ UNRESOLVED Identities : ${summary.unresolvedContactsCount}`);
-  console.log(` Store-Only Candidates      : Detected: ${summary.storeOnlyDetectedCount} | Rejected: ${summary.storeOnlyRejectedCount}`);
-  console.log(` Invalid Phone Numbers      : ${summary.invalidNumbersCount}`);
+  console.log(`   ├─ Already Saved Contacts: ${summary.savedContactsCount}`);
+  console.log(`   └─ Unsaved Contacts Found: ${summary.unsavedContactsCount}`);
   console.log(` Deduplicated Unique Exports: ${summary.deduplicatedExportCount}`);
-  console.log('----------------------------------------------------');
-  console.log(' Exported Files:');
+  console.log('----------------------------------------------------------------');
+  console.log(' 📁 Exported Files Ready For Import:');
   for (const filePath of summary.exportedFiles) {
     console.log(`   • ${filePath}`);
   }
-  console.log('====================================================\n');
+  console.log('================================================================\n');
 }
 
 async function main() {
@@ -196,7 +233,8 @@ async function main() {
   program.parse(process.argv);
 }
 
-main().catch((err) => {
-  console.error('\n[Fatal Error]:', err);
+main().catch(async (err) => {
+  console.error('\n❌ [Fatal Error]:', err instanceof Error ? err.message : err);
+  await pauseForUserExit();
   process.exit(1);
 });

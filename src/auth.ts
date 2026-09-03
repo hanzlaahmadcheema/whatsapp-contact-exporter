@@ -25,16 +25,15 @@ export function createWhatsAppClient(options: AuthInitOptions = {}): InstanceTyp
   const log = options.onLog || console.log;
 
   const authDataPath = options.dataPath || getAuthDir();
-  log(`Initializing WhatsApp Web client with LocalAuth at: ${authDataPath}`);
 
   let browserPath = options.executablePath;
   if (!browserPath) {
     try {
       const detected = findSystemBrowser();
       browserPath = detected.executablePath;
-      log(`[Browser] Auto-detected system browser: ${detected.browserName} (${browserPath})`);
+      log(`[Browser] Using system browser: ${detected.browserName}`);
     } catch (err) {
-      log(`[Browser Info] Bundled Chromium fallback / System search note: ${(err as Error).message}`);
+      log(`[Browser Info] ${(err as Error).message}`);
     }
   }
 
@@ -82,15 +81,21 @@ export function createWhatsAppClient(options: AuthInitOptions = {}): InstanceTyp
   const client = new Client(clientOptions as any);
 
   client.on('qr', (qr: string) => {
-    log('\n================ WhatsApp Web QR Code ================');
-    log('Scan the QR code below using WhatsApp on your phone:');
+    log('\n================================================================');
+    log('   📱 WHATSAPP LOGIN - SCAN QR CODE WITH YOUR PHONE');
+    log('================================================================');
+    log(' 1. Open WhatsApp on your phone');
+    log(' 2. Tap Menu (⋮) on Android or Settings (⚙️) on iPhone');
+    log(' 3. Tap "Linked Devices" -> "Link a Device"');
+    log(' 4. Point your camera at the QR code below:');
+    log('----------------------------------------------------------------');
     qrcode.generate(qr, { small: true });
-    log('======================================================\n');
+    log('================================================================\n');
     options.onQr?.(qr);
   });
 
   client.on('authenticated', () => {
-    log('[Auth] Session authenticated successfully.');
+    log('✓ [Auth] Session authenticated successfully.');
     options.onAuthenticated?.();
   });
 
@@ -100,7 +105,7 @@ export function createWhatsAppClient(options: AuthInitOptions = {}): InstanceTyp
   });
 
   client.on('ready', () => {
-    log('[Auth] WhatsApp Web client is READY.');
+    log('✓ [Auth] WhatsApp Web connection is READY.');
     options.onReady?.();
   });
 

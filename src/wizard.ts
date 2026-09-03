@@ -25,34 +25,63 @@ function createPrompt() {
 
 /**
  * Prompts the user interactively through all export configuration preferences.
+ * Designed with simple defaults so non-tech users can simply press [Enter] to proceed.
  */
 export async function promptWizardOptions(): Promise<ExporterOptions> {
-  console.log('\n====================================================');
-  console.log('   🚀 WhatsApp Contact Exporter - Setup Wizard');
-  console.log('====================================================\n');
+  console.log('\n================================================================');
+  console.log('   🟢 WHATSAPP CONTACT EXPORTER - EASY SETUP WIZARD');
+  console.log('================================================================');
+  console.log('💡 Tip: You can press [Enter] on each question to use the default!\n');
 
   const { ask, close } = createPrompt();
 
-  // Stage 1: Extraction & Connection Preferences
-  console.log('--- STAGE 1: SCANNING PREFERENCES ---');
-  const countryInput = await ask('1. Default 2-letter Country Code (e.g. PK, US, GB, IN)', 'PK');
-  const includeGroupsInput = await ask('2. Include Group Chat participants? (y/n)', 'n');
-  const formatsInput = await ask('3. Export formats (csv, vcf, or both)', 'both');
-  const outputDirInput = await ask('4. Output directory path', './exports');
+  // Stage 1: Basic Preferences
+  console.log('--- 📋 STEP 1: EXPORT PREFERENCES ---');
+  const countryInput = await ask(
+    '1. Your Country Code (e.g. PK for Pakistan, US for USA, GB for UK, IN for India)',
+    'PK'
+  );
+
+  const includeGroupsInput = await ask(
+    '2. Include members from WhatsApp Group Chats? (y = Yes, n = No / DMs only)',
+    'n'
+  );
+
+  console.log('\n3. What format would you like your contacts exported in?');
+  console.log('   [1] Both CSV (Excel / Google Contacts) & VCF (Phone contacts) [Recommended]');
+  console.log('   [2] CSV only (for Excel / Google Sheets)');
+  console.log('   [3] VCF only (for direct import into iPhone / Android)');
+  const formatChoice = await ask('   Choose format (1, 2, or 3)', '1');
+
+  let formats: ('csv' | 'vcf')[] = ['csv', 'vcf'];
+  if (formatChoice === '2') {
+    formats = ['csv'];
+  } else if (formatChoice === '3') {
+    formats = ['vcf'];
+  }
+
+  const defaultExportPath = path.resolve('./exports');
+  const outputDirInput = await ask(
+    `\n4. Folder to save exported files [Default: ${defaultExportPath}]`,
+    defaultExportPath
+  );
 
   // Stage 2: Name Customization Menu
-  console.log('\n====================================================');
-  console.log('  ⚙️  STAGE 2: CONTACT NAME CUSTOMIZATION MENU');
-  console.log('====================================================');
-  console.log('Select Name Format Style:');
-  console.log('  [1] Pushname if available (Fallback: Full Phone Number)  (e.g., "Alex" or "+923001234567")');
-  console.log('  [2] Full Phone Number                                    (e.g., "+923001234567")');
-  console.log('  [3] Last 4 Digits of Phone Number                        (e.g., "4567")');
-  console.log('  [4] Incremental Counter                                  (e.g., "001", "002", "003")');
+  console.log('\n================================================================');
+  console.log('  🏷️  STEP 2: CONTACT NAME CUSTOMIZATION');
+  console.log('================================================================');
+  console.log('How would you like unsaved contacts to be named in your address book?');
+  console.log('  [1] Real Name if available, otherwise Phone Number (e.g., "WA Unsaved - Alex") [Recommended]');
+  console.log('  [2] Full Phone Number (e.g., "WA Unsaved - +923001234567")');
+  console.log('  [3] Last 4 Digits of Phone Number (e.g., "WA Unsaved - 4567")');
+  console.log('  [4] Sequential Counter (e.g., "Client - 001", "Client - 002")');
 
-  const styleChoiceInput = await ask('Select Style (1-4)', '1');
-  const prefixInput = await ask('Custom Prefix (Leave empty for default "WA Unsaved - ", or enter custom e.g., "Client - ")', 'WA Unsaved - ');
-  const suffixInput = await ask('Custom Suffix (Leave empty for none, or enter e.g., " - Aug 2026")', '');
+  const styleChoiceInput = await ask('Choose naming style (1-4)', '1');
+  const prefixInput = await ask(
+    'Name Prefix in front of every contact (or enter custom e.g. "Lead ")',
+    'WA Unsaved - '
+  );
+  const suffixInput = await ask('Name Suffix at the end (or press Enter for none)', '');
 
   let styleChoice: NameStyleOption = 'pushname_or_number';
   let counterStart = 1;
@@ -64,8 +93,8 @@ export async function promptWizardOptions(): Promise<ExporterOptions> {
     styleChoice = 'last4';
   } else if (styleChoiceInput === '4') {
     styleChoice = 'counter';
-    const counterStartInput = await ask('Starting number for counter', '1');
-    const padDigitsInput = await ask('Digits for zero-padding (e.g., 3 -> 001, 002)', '3');
+    const counterStartInput = await ask('Starting number for counter (e.g. 1)', '1');
+    const padDigitsInput = await ask('Digits for numbering padding (e.g. 3 for 001, 002)', '3');
     counterStart = parseInt(counterStartInput, 10) || 1;
     padDigits = parseInt(padDigitsInput, 10) || 3;
   }
@@ -73,12 +102,6 @@ export async function promptWizardOptions(): Promise<ExporterOptions> {
   close();
 
   const includeGroups = includeGroupsInput.toLowerCase().startsWith('y');
-  let formats: ('csv' | 'vcf')[] = ['csv', 'vcf'];
-  if (formatsInput.toLowerCase() === 'csv') {
-    formats = ['csv'];
-  } else if (formatsInput.toLowerCase() === 'vcf') {
-    formats = ['vcf'];
-  }
 
   const namingOptions: NamingCustomizationOptions = {
     prefix: prefixInput,
@@ -101,11 +124,6 @@ export async function promptWizardOptions(): Promise<ExporterOptions> {
 
 export async function runWizard(): Promise<void> {
   const options = await promptWizardOptions();
-  console.log('\n====================================================');
-  console.log('   📱 Launching WhatsApp Web Client (Headless)');
-  console.log('   If this is your first run, a QR code will appear.');
-  console.log('   Open WhatsApp on your phone -> Settings -> Linked Devices');
-  console.log('====================================================\n');
   await runExportPipeline(options);
 }
 

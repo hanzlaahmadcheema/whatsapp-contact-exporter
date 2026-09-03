@@ -102,19 +102,23 @@ async function buildWindowsExecutable() {
   }
 
   // Copy base binary to release directory with retry handling
-  try {
-    fs.copyFileSync(winNodePath, targetExePath);
-  } catch (err) {
-    if (err && (err.code === 'EBUSY' || err.code === 'EPERM')) {
-      console.log('⚠️ [Notice] Executable is currently in use. Terminating running instance and retrying...');
-      if (process.platform === 'win32') {
-        try {
-          execSync('taskkill /IM whatsapp-contact-exporter-windows-x64.exe /F 2>nul', { stdio: 'ignore' });
-        } catch {}
-      }
-      await new Promise((r) => setTimeout(r, 1200));
+  let copied = false;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
       fs.copyFileSync(winNodePath, targetExePath);
-    } else {
+      copied = true;
+      break;
+    } catch (err) {
+      if (attempt < 4 && err && (err.code === 'EBUSY' || err.code === 'EPERM')) {
+        console.log(`⚠️ [Notice] Executable is currently locked. Releasing background locks and retrying (${attempt}/4)...`);
+        if (process.platform === 'win32') {
+          try {
+            execSync('taskkill /IM whatsapp-contact-exporter-windows-x64.exe /F 2>nul', { stdio: 'ignore' });
+          } catch {}
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
       throw err;
     }
   }

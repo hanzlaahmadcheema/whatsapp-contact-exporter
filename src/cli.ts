@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+// Suppress internal Node.js runtime deprecation warnings (e.g. DEP0040 punycode, DEP0169 url.parse) for clean terminal UI
+process.env.NODE_NO_WARNINGS = '1';
+process.removeAllListeners('warning');
+process.on('warning', () => {});
+process.emitWarning = () => {};
+
 import { Command } from 'commander';
 import path from 'path';
 import readline from 'readline';
@@ -10,7 +16,7 @@ import { normalizeContacts } from './normalizer.js';
 import { exportContacts } from './exporter.js';
 import { performHealthCheck } from './health.js';
 import { ExportSummary, ExporterOptions, NamingCustomizationOptions, NameStyleOption } from './types.js';
-import { promptWizardOptions } from './wizard.js';
+import { runMainMenu } from './wizard.js';
 
 export function openFolderInExplorer(folderPath: string): void {
   try {
@@ -171,10 +177,9 @@ function printSummary(summary: ExportSummary): void {
 async function main() {
   const args = process.argv.slice(2);
 
-  // If launched with no arguments or explicitly with --wizard / -i, run interactive setup wizard
+  // If launched with no arguments or explicitly with --wizard / -i, run interactive Main Menu
   if (args.length === 0 || args.includes('--wizard') || args.includes('-i') || args.includes('--interactive')) {
-    const options = await promptWizardOptions();
-    await runExportPipeline(options);
+    await runMainMenu();
     return;
   }
 

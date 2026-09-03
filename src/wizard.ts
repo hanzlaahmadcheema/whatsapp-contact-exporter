@@ -1,7 +1,14 @@
+// Suppress internal Node.js runtime deprecation warnings (e.g. DEP0040 punycode, DEP0169 url.parse)
+process.env.NODE_NO_WARNINGS = '1';
+process.removeAllListeners('warning');
+process.on('warning', () => {});
+process.emitWarning = () => {};
+
 import readline from 'readline';
 import path from 'path';
 import { ExporterOptions, NamingCustomizationOptions, NameStyleOption } from './types.js';
-import { runExportPipeline } from './cli.js';
+import { clearAuthSession } from './paths.js';
+import { runExportPipeline, openFolderInExplorer } from './cli.js';
 
 function createPrompt() {
   const rl = readline.createInterface({
@@ -24,19 +31,16 @@ function createPrompt() {
 }
 
 /**
- * Prompts the user interactively through all export configuration preferences.
- * Designed with simple defaults so non-tech users can simply press [Enter] to proceed.
+ * Prompts the user through the step-by-step export preferences.
  */
-export async function promptWizardOptions(): Promise<ExporterOptions> {
-  console.log('\n================================================================');
-  console.log('   🟢 WHATSAPP CONTACT EXPORTER - EASY SETUP WIZARD');
-  console.log('================================================================');
-  console.log('💡 Tip: You can press [Enter] on each question to use the default!\n');
+export async function promptExportOptions(): Promise<ExporterOptions> {
+  console.log('\n----------------------------------------------------------------');
+  console.log('  📋 EXPORT PREFERENCES (Press Enter to keep defaults)');
+  console.log('----------------------------------------------------------------');
 
   const { ask, close } = createPrompt();
 
   // Stage 1: Basic Preferences
-  console.log('--- 📋 STEP 1: EXPORT PREFERENCES ---');
   const countryInput = await ask(
     '1. Your Country Code (e.g. PK for Pakistan, US for USA, GB for UK, IN for India)',
     'PK'
@@ -67,9 +71,9 @@ export async function promptWizardOptions(): Promise<ExporterOptions> {
   );
 
   // Stage 2: Name Customization Menu
-  console.log('\n================================================================');
-  console.log('  🏷️  STEP 2: CONTACT NAME CUSTOMIZATION');
-  console.log('================================================================');
+  console.log('\n----------------------------------------------------------------');
+  console.log('  🏷️  CONTACT NAME CUSTOMIZATION');
+  console.log('----------------------------------------------------------------');
   console.log('How would you like unsaved contacts to be named in your address book?');
   console.log('  [1] Real Name if available, otherwise Phone Number (e.g., "WA Unsaved - Alex") [Recommended]');
   console.log('  [2] Full Phone Number (e.g., "WA Unsaved - +923001234567")');
@@ -122,9 +126,52 @@ export async function promptWizardOptions(): Promise<ExporterOptions> {
   };
 }
 
+/**
+ * Interactive Main Menu with options to Start Export, Logout/Switch Account, Open Folder, or Exit.
+ */
+export async function runMainMenu(): Promise<void> {
+  while (true) {
+    console.log('\n================================================================');
+    console.log('   🟢 WHATSAPP CONTACT EXPORTER - MAIN MENU');
+    console.log('================================================================');
+    console.log('  [1] 🚀 Start Contact Export (Extract unsaved contacts)');
+    console.log('  [2] 🔄 Logout & Switch Account (Clear saved WhatsApp login)');
+    console.log('  [3] 📂 Open Exports Folder in File Explorer');
+    console.log('  [4] ❌ Exit');
+    console.log('================================================================');
+
+    const { ask, close } = createPrompt();
+    const choice = await ask('Select an option (1-4)', '1');
+    close();
+
+    if (choice === '1') {
+      const options = await promptExportOptions();
+      await runExportPipeline(options);
+      break;
+    } else if (choice === '2') {
+      console.log('\n🔄 Logging out of current session...');
+      const success = clearAuthSession();
+      if (success) {
+        console.log('✓ Successfully logged out!');
+        console.log('💡 Next time you export, a new QR code will appear to link your other account.');
+      } else {
+        console.log('⚠️ No active session found or already logged out.');
+      }
+    } else if (choice === '3') {
+      const defaultExportPath = path.resolve('./exports');
+      console.log(`📂 Opening: ${defaultExportPath}`);
+      openFolderInExplorer(defaultExportPath);
+    } else if (choice === '4' || choice.toLowerCase() === 'exit' || choice.toLowerCase() === 'q') {
+      console.log('\n👋 Goodbye!');
+      process.exit(0);
+    } else {
+      console.log('⚠️ Invalid option. Please select 1, 2, 3, or 4.');
+    }
+  }
+}
+
 export async function runWizard(): Promise<void> {
-  const options = await promptWizardOptions();
-  await runExportPipeline(options);
+  await runMainMenu();
 }
 
 if (process.argv[1] && process.argv[1].endsWith('wizard.ts')) {

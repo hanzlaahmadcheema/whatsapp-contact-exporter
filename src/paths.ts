@@ -48,3 +48,19 @@ export function getDefaultExportsDir(): string {
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
+
+/**
+ * Clears saved authentication session directory for logging out.
+ */
+export function clearAuthSession(): boolean {
+  try {
+    const dir = path.join(getAppDataDir(), 'auth');
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+

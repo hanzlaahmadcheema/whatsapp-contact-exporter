@@ -1,6 +1,7 @@
 import readline from 'readline';
-import { execSync } from 'child_process';
-import fs from 'fs';
+import path from 'path';
+import { ExporterOptions, NamingCustomizationOptions, NameStyleOption } from './types.js';
+import { runExportPipeline } from './cli.js';
 
 function createPrompt() {
   const rl = readline.createInterface({
@@ -22,7 +23,10 @@ function createPrompt() {
   return { ask, close };
 }
 
-async function runWizard() {
+/**
+ * Prompts the user interactively through all export configuration preferences.
+ */
+export async function promptWizardOptions(): Promise<ExporterOptions> {
   console.log('\n====================================================');
   console.log('   🚀 WhatsApp Contact Exporter - Setup Wizard');
   console.log('====================================================\n');
@@ -31,10 +35,10 @@ async function runWizard() {
 
   // Stage 1: Extraction & Connection Preferences
   console.log('--- STAGE 1: SCANNING PREFERENCES ---');
-  const country = await ask('1. Default 2-letter Country Code (e.g. PK, US, GB, IN)', 'PK');
+  const countryInput = await ask('1. Default 2-letter Country Code (e.g. PK, US, GB, IN)', 'PK');
   const includeGroupsInput = await ask('2. Include Group Chat participants? (y/n)', 'n');
   const formatsInput = await ask('3. Export formats (csv, vcf, or both)', 'both');
-  const outputDir = await ask('4. Output directory path', './exports');
+  const outputDirInput = await ask('4. Output directory path', './exports');
 
   // Stage 2: Name Customization Menu
   console.log('\n====================================================');
@@ -50,70 +54,64 @@ async function runWizard() {
   const prefixInput = await ask('Custom Prefix (Leave empty for default "WA Unsaved - ", or enter custom e.g., "Client - ")', 'WA Unsaved - ');
   const suffixInput = await ask('Custom Suffix (Leave empty for none, or enter e.g., " - Aug 2026")', '');
 
-  let style = 'pushname';
-  let counterStart = '1';
-  let padDigits = '3';
+  let styleChoice: NameStyleOption = 'pushname_or_number';
+  let counterStart = 1;
+  let padDigits = 3;
 
   if (styleChoiceInput === '2') {
-    style = 'number';
+    styleChoice = 'full_number';
   } else if (styleChoiceInput === '3') {
-    style = 'last4';
+    styleChoice = 'last4';
   } else if (styleChoiceInput === '4') {
-    style = 'counter';
-    counterStart = await ask('Starting number for counter', '1');
-    padDigits = await ask('Digits for zero-padding (e.g., 3 -> 001, 002)', '3');
+    styleChoice = 'counter';
+    const counterStartInput = await ask('Starting number for counter', '1');
+    const padDigitsInput = await ask('Digits for zero-padding (e.g., 3 -> 001, 002)', '3');
+    counterStart = parseInt(counterStartInput, 10) || 1;
+    padDigits = parseInt(padDigitsInput, 10) || 3;
   }
 
   close();
 
-  console.log('\n----------------------------------------------------');
-  console.log(' Preparing environment...');
-
-  if (!fs.existsSync('./dist/cli.js')) {
-    console.log(' Building project TypeScript files...');
-    execSync('npm run build', { stdio: 'inherit' });
-  }
-
-  const includeGroups = includeGroupsInput.toLowerCase() === 'y';
-
-  let formatArgs: string[] = ['csv', 'vcf'];
+  const includeGroups = includeGroupsInput.toLowerCase().startsWith('y');
+  let formats: ('csv' | 'vcf')[] = ['csv', 'vcf'];
   if (formatsInput.toLowerCase() === 'csv') {
-    formatArgs = ['csv'];
+    formats = ['csv'];
   } else if (formatsInput.toLowerCase() === 'vcf') {
-    formatArgs = ['vcf'];
+    formats = ['vcf'];
   }
 
-  const args: string[] = [
-    './dist/cli.js',
-    '-c', country.toUpperCase(),
-    '-o', outputDir,
-    '-f', ...formatArgs,
-    '--name-style', style,
-    '--prefix', `"${prefixInput}"`,
-  ];
+  const namingOptions: NamingCustomizationOptions = {
+    prefix: prefixInput,
+    suffix: suffixInput.length > 0 ? suffixInput : undefined,
+    nameStyle: styleChoice,
+    startCounter: counterStart,
+    padDigits: padDigits,
+  };
 
-  if (suffixInput.length > 0) {
-    args.push('--suffix', `"${suffixInput}"`);
-  }
+  return {
+    country: countryInput.toUpperCase(),
+    format: formats,
+    outputDir: path.resolve(outputDirInput),
+    includeGroups,
+    headless: true,
+    syncWaitMs: 3000,
+    naming: namingOptions,
+  };
+}
 
-  if (style === 'counter') {
-    args.push('--counter-start', counterStart, '--pad-digits', padDigits);
-  }
-
-  if (!includeGroups) {
-    args.push('--no-groups');
-  }
-
+export async function runWizard(): Promise<void> {
+  const options = await promptWizardOptions();
   console.log('\n====================================================');
   console.log('   📱 Launching WhatsApp Web Client (Headless)');
   console.log('   If this is your first run, a QR code will appear.');
   console.log('   Open WhatsApp on your phone -> Settings -> Linked Devices');
   console.log('====================================================\n');
-
-  execSync(`node ${args.join(' ')}`, { stdio: 'inherit' });
+  await runExportPipeline(options);
 }
 
-runWizard().catch((err) => {
-  console.error('\n[Error] Wizard execution failed:', err);
-  process.exit(1);
-});
+if (process.argv[1] && process.argv[1].endsWith('wizard.ts')) {
+  runWizard().catch((err) => {
+    console.error('\n[Error] Wizard execution failed:', err);
+    process.exit(1);
+  });
+}

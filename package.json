@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-contact-exporter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Extract and normalize unsaved contacts from WhatsApp Web into CSV and VCF formats",
   "main": "dist/cli.js",
   "bin": {

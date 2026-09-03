@@ -92,8 +92,32 @@ async function buildWindowsExecutable() {
     console.log(`✓ Reusing cached Windows base binary: ${winNodePath}`);
   }
 
-  // Copy base binary to release directory
-  fs.copyFileSync(winNodePath, targetExePath);
+  // Automatically terminate any running instance of the target executable to avoid Windows EBUSY file locks
+  if (process.platform === 'win32') {
+    try {
+      execSync('taskkill /IM whatsapp-contact-exporter-windows-x64.exe /F 2>nul', { stdio: 'ignore' });
+    } catch {
+      // Non-fatal if process is not currently running
+    }
+  }
+
+  // Copy base binary to release directory with retry handling
+  try {
+    fs.copyFileSync(winNodePath, targetExePath);
+  } catch (err) {
+    if (err && (err.code === 'EBUSY' || err.code === 'EPERM')) {
+      console.log('⚠️ [Notice] Executable is currently in use. Terminating running instance and retrying...');
+      if (process.platform === 'win32') {
+        try {
+          execSync('taskkill /IM whatsapp-contact-exporter-windows-x64.exe /F 2>nul', { stdio: 'ignore' });
+        } catch {}
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+      fs.copyFileSync(winNodePath, targetExePath);
+    } else {
+      throw err;
+    }
+  }
 
   // 6. Inject SEA Blob into Windows executable using postject
   console.log('\n[Step 5/6] Injecting SEA Blob into Windows executable...');

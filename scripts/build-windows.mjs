@@ -10,7 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-const NODE_WIN_URL = 'https://nodejs.org/dist/v20.18.0/win-x64/node.exe';
+const nodeVersion = process.version;
+const NODE_WIN_URL = `https://nodejs.org/dist/${nodeVersion}/win-x64/node.exe`;
 const SEA_FUSE = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 
 async function buildWindowsExecutable() {
@@ -21,7 +22,7 @@ async function buildWindowsExecutable() {
   // 1. Run Vitest Unit Tests & TypeScript compilation
   console.log('[Step 1/6] Running unit tests and verifying build baseline...');
   execSync('npm test', { cwd: rootDir, stdio: 'inherit' });
-  execSync('npm run build', { cwd: rootDir, stdio: 'inherit' });
+  execSync('npx tsc', { cwd: rootDir, stdio: 'inherit' });
 
   // 2. Prepare output directories
   const distDir = path.join(rootDir, 'dist');
@@ -32,17 +33,18 @@ async function buildWindowsExecutable() {
   const bundlePath = path.join(distDir, 'bundle.cjs');
   const seaConfigPath = path.join(distDir, 'sea-config.json');
   const seaBlobPath = path.join(distDir, 'sea-prep.blob');
-  const winNodePath = path.join(distDir, 'node-win-x64.exe');
+  const winNodePath = path.join(distDir, `node-${nodeVersion}-win-x64.exe`);
   const targetExePath = path.join(releaseDir, 'whatsapp-contact-exporter-windows-x64.exe');
   const sha256Path = path.join(releaseDir, 'SHA256SUMS.txt');
 
   // 3. Bundle TypeScript application into standalone CommonJS file
   console.log('\n[Step 2/6] Bundling application source with esbuild...');
+  const majorVersion = parseInt(process.versions.node.split('.')[0], 10) || 20;
   await esbuild.build({
     entryPoints: [path.join(rootDir, 'src/cli.ts')],
     bundle: true,
     platform: 'node',
-    target: 'node20',
+    target: `node${majorVersion}`,
     format: 'cjs',
     outfile: bundlePath,
     external: ['@aws-sdk/*', 'fsevents'],
@@ -71,22 +73,55 @@ async function buildWindowsExecutable() {
   execSync(`node --experimental-sea-config "${seaConfigPath}"`, { cwd: rootDir, stdio: 'inherit' });
   console.log(`✓ SEA Blob created: ${seaBlobPath}`);
 
-  // 5. Download / fetch Node.js Windows x64 binary
-  console.log('\n[Step 4/6] Fetching Node.js v20.18.0 Windows x64 base binary...');
+  // 5. Download / fetch Node.js Windows x64 binary matching the runtime version
+  console.log(`\n[Step 4/6] Fetching Node.js ${nodeVersion} Windows x64 base binary...`);
   if (!fs.existsSync(winNodePath)) {
-    console.log(`Downloading base binary from ${NODE_WIN_URL}...`);
-    const res = await fetch(NODE_WIN_URL);
-    if (!res.ok) {
-      throw new Error(`Failed to download Node.js Windows binary: ${res.statusText}`);
+    if (process.platform === 'win32' && process.execPath.endsWith('node.exe')) {
+      console.log(`✓ Copying local Windows node.exe (${process.execPath})...`);
+      fs.copyFileSync(process.execPath, winNodePath);
+    } else {
+      console.log(`Downloading base binary from ${NODE_WIN_URL}...`);
+      const res = await fetch(NODE_WIN_URL);
+      if (!res.ok) {
+        throw new Error(`Failed to download Node.js Windows binary from ${NODE_WIN_URL}: ${res.statusText}`);
+      }
+      const arrayBuffer = await res.arrayBuffer();
+      fs.writeFileSync(winNodePath, Buffer.from(arrayBuffer));
     }
-    const arrayBuffer = await res.arrayBuffer();
-    fs.writeFileSync(winNodePath, Buffer.from(arrayBuffer));
   } else {
     console.log(`✓ Reusing cached Windows base binary: ${winNodePath}`);
   }
 
-  // Copy base binary to release directory
-  fs.copyFileSync(winNodePath, targetExePath);
+  // Automatically terminate any running instance of the target executable to avoid Windows EBUSY file locks
+  if (process.platform === 'win32') {
+    try {
+      execSync('taskkill /IM whatsapp-contact-exporter-windows-x64.exe /F 2>nul', { stdio: 'ignore' });
+    } catch {
+      // Non-fatal if process is not currently running
+    }
+  }
+
+  // Copy base binary to release directory with retry handling
+  let copied = false;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      fs.copyFileSync(winNodePath, targetExePath);
+      copied = true;
+      break;
+    } catch (err) {
+      if (attempt < 4 && err && (err.code === 'EBUSY' || err.code === 'EPERM')) {
+        console.log(`⚠️ [Notice] Executable is currently locked. Releasing background locks and retrying (${attempt}/4)...`);
+        if (process.platform === 'win32') {
+          try {
+            execSync('taskkill /IM whatsapp-contact-exporter-windows-x64.exe /F 2>nul', { stdio: 'ignore' });
+          } catch {}
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      throw err;
+    }
+  }
 
   // 6. Inject SEA Blob into Windows executable using postject
   console.log('\n[Step 5/6] Injecting SEA Blob into Windows executable...');

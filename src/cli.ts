@@ -122,11 +122,25 @@ program
       }
     });
 
-    try {
-      await client.initialize();
-    } catch (err) {
-      console.error('[Fatal Error] Failed to initialize WhatsApp Web client:', err);
-      process.exit(1);
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await client.initialize();
+        break;
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        await client.destroy().catch(() => {});
+        if (
+          attempt < maxRetries &&
+          (errorMsg.includes('Execution context was destroyed') || errorMsg.includes('auth timeout'))
+        ) {
+          console.log(`[Auth Info] Page reload detected during startup. Re-attaching (${attempt}/${maxRetries})...`);
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        console.error('[Fatal Error] Failed to initialize WhatsApp Web client:', err);
+        process.exit(1);
+      }
     }
   });
 

@@ -53,6 +53,8 @@ export function createWhatsAppClient(options: AuthInitOptions = {}): InstanceTyp
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
       '--disable-renderer-backgrounding',
+      '--disable-blink-features=AutomationControlled',
+      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     ],
   };
 
@@ -65,15 +67,17 @@ export function createWhatsAppClient(options: AuthInitOptions = {}): InstanceTyp
       dataPath: authDataPath,
     }),
     puppeteer: puppeteerConfig,
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    bypassCSP: true,
+    webVersionCache: options.webVersionCacheUrl
+      ? { type: 'remote', remotePath: options.webVersionCacheUrl }
+      : {
+          type: 'remote',
+          remotePath:
+            'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018944819-alpha.html',
+        },
   };
-
-  // Only apply remote web version cache if explicitly provided
-  if (options.webVersionCacheUrl) {
-    clientOptions.webVersionCache = {
-      type: 'remote',
-      remotePath: options.webVersionCacheUrl,
-    };
-  }
 
   const client = new Client(clientOptions as any);
 

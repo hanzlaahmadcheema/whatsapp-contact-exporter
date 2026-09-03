@@ -9,39 +9,54 @@
 
 ---
 
-## 💻 Windows Portable Executable (.exe)
+## 💻 Standalone Portable Releases (Windows, macOS & Linux)
 
-For Windows users who want to run the tool without installing Node.js or npm, a pre-packaged portable **Windows x64 Single Executable Application (SEA)** is available.
+For users who want to run the tool without installing Node.js or npm, pre-packaged **Single Executable Applications (SEA)** are available for all major platforms.
 
 ### System Requirements
-- **OS**: Windows 10 / Windows 11 (x64)
-- **Browser**: Google Chrome or Microsoft Edge installed
-- **Node.js**: **Not required** (bundled inside standalone binary)
+- **Operating Systems**: 
+  - **Windows**: Windows 10 / 11 (x64)
+  - **macOS**: macOS 12 Monterey or newer (Apple Silicon `arm64` & Intel `x64`)
+  - **Linux**: Ubuntu 20.04+, Debian, Fedora, Arch (x64)
+- **Browser**: Google Chrome, Microsoft Edge, Brave, or Chromium installed
+- **Node.js**: **Not required** (bundled directly into the standalone binary)
 
-### Running on Windows
-1. Download `whatsapp-contact-exporter-windows-x64.exe` from the latest GitHub Release.
-2. **Double-click** the `.exe` file (or run it from PowerShell/CMD).
-3. The interactive **Main Menu** will appear:
+### Download & Run
+
+| Platform | Download Binary | Run Instructions |
+| :--- | :--- | :--- |
+| **Windows (x64)** | `whatsapp-contact-exporter-windows-x64.exe` | Double-click the `.exe` (or run in CMD/PowerShell) |
+| **macOS (Apple Silicon)** | `whatsapp-contact-exporter-macos-arm64` | `chmod +x whatsapp-contact-exporter-macos-arm64 && ./whatsapp-contact-exporter-macos-arm64` |
+| **macOS (Intel)** | `whatsapp-contact-exporter-macos-x64` | `chmod +x whatsapp-contact-exporter-macos-x64 && ./whatsapp-contact-exporter-macos-x64` |
+| **Linux (x64)** | `whatsapp-contact-exporter-linux-x64` | `chmod +x whatsapp-contact-exporter-linux-x64 && ./whatsapp-contact-exporter-linux-x64` |
+
+### How It Works:
+1. Launch the binary for your platform.
+2. The interactive **Main Menu** will appear:
    - `[1] Start Contact Export`: Step-by-step guided extraction with customizable naming and formats.
    - `[2] Logout & Switch Account`: Clears saved login session to link a different WhatsApp account.
-   - `[3] Open Exports Folder`: Directly reveals your exports folder in Windows File Explorer.
+   - `[3] Open Exports Folder`: Directly reveals your exports folder in your system file manager.
    - `[4] Exit`: Safely exits the application.
-4. Scan the on-screen QR code using WhatsApp on your phone (**Settings** $\rightarrow$ **Linked Devices**).
-5. Upon export completion, Windows File Explorer will automatically open your exports folder!
+3. Scan the on-screen QR code using WhatsApp on your phone (**Settings** $\rightarrow$ **Linked Devices**).
+4. Upon export completion, your file manager (Explorer / Finder) will automatically open your exports folder!
 
 > [!TIP]
-> Power users can still pass CLI flags (e.g. `whatsapp-contact-exporter-windows-x64.exe -c PK -f csv`) to bypass the menu and run direct automated exports.
+> Power users can still pass standard CLI flags (e.g. `./whatsapp-contact-exporter-linux-x64 -c PK -f csv`) to bypass the menu and run automated exports.
 
 ### Persistent Authentication Data Location
-Session credentials and browser cache are stored safely inside your user AppData directory:
-- **Auth Data**: `%APPDATA%\WhatsApp Contact Exporter\auth\`
-- **Cache Data**: `%APPDATA%\WhatsApp Contact Exporter\cache\`
-- **Exports Data**: `%APPDATA%\WhatsApp Contact Exporter\exports\`
+Session credentials and browser cache are stored safely inside your user platform data directory:
+- **Windows**: `%APPDATA%\WhatsApp Contact Exporter\`
+- **macOS**: `~/Library/Application Support/WhatsApp Contact Exporter/`
+- **Linux**: `~/.config/whatsapp-contact-exporter/`
 
 ### Verifying Executable Integrity (SHA-256)
-In PowerShell, verify the SHA-256 hash against `SHA256SUMS.txt`:
-```powershell
+Verify the SHA-256 checksum against `SHA256SUMS.txt`:
+```bash
+# Windows (PowerShell)
 Get-FileHash whatsapp-contact-exporter-windows-x64.exe -Algorithm SHA256
+
+# macOS / Linux
+sha256sum whatsapp-contact-exporter-*
 ```
 
 ---
